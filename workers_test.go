@@ -223,6 +223,15 @@ export default {
     "errors": [],
     "messages": []
 }`
+	getWorkerUsageModelResponseData = `{
+  "result": {
+    "usage_model": "unbound"
+  },
+  "success": true,
+  "errors": [],
+  "messages": []
+}`
+	updateWorkerUsageModelResponseData = getWorkerUsageModelResponseData
 )
 
 var (
@@ -995,4 +1004,54 @@ func TestUploadWorker_WithSmartPlacementEnabled(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Nil(t, worker.PlacementMode)
 	})
+}
+
+func TestGetWorkerUsageModel(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/accounts/"+testAccountID+"/workers/scripts/foo/usage-model", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method, "Expected method 'GET', got %s", r.Method)
+		w.Header().Set("content-type", "application/javascript")
+		fmt.Fprintf(w, getWorkerUsageModelResponseData)
+	})
+	res, err := client.GetWorkerUsageModel(context.Background(), AccountIdentifier(testAccountID), GetWorkerUsageModelParams{ScriptName:"foo"})
+	want := WorkerUsageModelResponse{
+		successResponse,
+		WorkerUsageModel{
+			UsageModel: "unbound",
+		},
+	}
+	if assert.NoError(t, err) {
+		assert.Equal(t, want.UsageModel, res.UsageModel)
+	}
+}
+
+func TestUpdateWorkerUsageModel(t *testing.T) {
+	setup()
+	defer teardown()
+
+	mux.HandleFunc("/accounts/"+testAccountID+"/workers/scripts/foo/usage-model", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPut, r.Method, "Expected method 'PUT', got %s", r.Method)
+		contentTypeHeader := r.Header.Get("content-type")
+		assert.Equal(t, "application/javascript", contentTypeHeader, "Expected content-type request header to be 'application/javascript', got %s", contentTypeHeader)
+		w.Header().Set("content-type", "application/javascript")
+		fmt.Fprintf(w, updateWorkerUsageModelResponseData)
+	})
+	params := UpdateWorkerUsageModelParams{
+		ScriptName: "foo",
+		WorkerUsageModel: WorkerUsageModel{
+			UsageModel: "unbound",
+		},
+	}
+	res, err := client.UpdateWorkerUsageModel(context.Background(), AccountIdentifier(testAccountID), params)
+	want := WorkerUsageModelResponse{
+		successResponse,
+		WorkerUsageModel{
+			UsageModel: "unbound",
+		},
+	}
+	if assert.NoError(t, err) {
+		assert.Equal(t, want, res)
+	}
 }

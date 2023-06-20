@@ -123,6 +123,25 @@ type DeleteWorkerParams struct {
 	ScriptName string
 }
 
+type WorkerUsageModel struct {
+	UsageModel string `json:"usage_model"`
+}
+
+// WorkerUsageModelResponse wrapper struct for API response to worker usage model calls
+type WorkerUsageModelResponse struct {
+	Response
+	WorkerUsageModel `json:"result"`
+}
+
+type GetWorkerUsageModelParams struct {
+	ScriptName string
+}
+
+type UpdateWorkerUsageModelParams struct {
+	ScriptName string
+	WorkerUsageModel
+}
+
 type PlacementMode string
 
 const (
@@ -264,6 +283,71 @@ func (api *API) UploadWorker(ctx context.Context, rc *ResourceContainer, params 
 	res, err := api.makeRequestContextWithHeaders(ctx, http.MethodPut, uri, body, headers)
 
 	var r WorkerScriptResponse
+	if err != nil {
+		return r, err
+	}
+
+	err = json.Unmarshal(res, &r)
+	if err != nil {
+		return r, fmt.Errorf("%s: %w", errUnmarshalError, err)
+	}
+
+	return r, nil
+}
+
+// GetWorkerUsageModel gets the usage model of a single worker.
+//
+// API reference: https://developers.cloudflare.com/api/operations/worker-script-fetch-usage-model
+func (api *API) GetWorkerUsageModel(ctx context.Context, rc *ResourceContainer, params GetWorkerUsageModelParams) (WorkerUsageModelResponse, error) {
+	if rc.Level != AccountRouteLevel {
+		return WorkerUsageModelResponse{}, ErrRequiredAccountLevelResourceContainer
+	}
+
+	if rc.Identifier == "" {
+		return WorkerUsageModelResponse{}, ErrMissingAccountID
+	}
+
+	uri := fmt.Sprintf("/accounts/%s/workers/scripts/%s/usage-model", rc.Identifier, params.ScriptName)
+	res, err := api.makeRequestContext(ctx, http.MethodGet, uri, nil)
+
+	var r WorkerUsageModelResponse
+	if err != nil {
+		return r, err
+	}
+
+	err = json.Unmarshal(res, &r)
+	if err != nil {
+		return r, fmt.Errorf("%s: %w", errUnmarshalError, err)
+	}
+
+	return r, nil
+}
+
+// UpdateWorkerUsageModel sets the usage model of a single worker.
+//
+// API reference: https://developers.cloudflare.com/api/operations/worker-script-update-usage-model
+func (api *API) UpdateWorkerUsageModel(ctx context.Context, rc *ResourceContainer, params UpdateWorkerUsageModelParams) (WorkerUsageModelResponse, error) {
+	if rc.Level != AccountRouteLevel {
+		return WorkerUsageModelResponse{}, ErrRequiredAccountLevelResourceContainer
+	}
+
+	if rc.Identifier == "" {
+		return WorkerUsageModelResponse{}, ErrMissingAccountID
+	}
+
+	body, err := json.Marshal(params.WorkerUsageModel)
+	if err != nil {
+		return WorkerUsageModelResponse{}, err
+	}
+
+	var contentType = "application/javascript"
+
+	uri := fmt.Sprintf("/accounts/%s/workers/scripts/%s/usage-model", rc.Identifier, params.ScriptName)
+	headers := make(http.Header)
+	headers.Set("Content-Type", contentType)
+	res, err := api.makeRequestContextWithHeaders(ctx, http.MethodPut, uri, body, headers)
+
+	var r WorkerUsageModelResponse
 	if err != nil {
 		return r, err
 	}
